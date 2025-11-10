@@ -1,0 +1,327 @@
+import { useState, useEffect, useCallback } from "react";
+import type { FhevmInstance } from "@zama-fhe/relayer-sdk/bundle";
+import type { Eip1193Provider } from "ethers";
+import type { BrowserProvider, Signer } from "ethers";
+import { ethers } from "ethers";
+import { WhistleBlower } from "@/abi/WhistleBlowerABI";
+import { WhistleBlowerAddresses } from "@/abi/WhistleBlowerAddresses";
+import { FhevmDecryptionSignature } from "@/fhevm/FhevmDecryptionSignature";
+
+type Report = {
+  id: number;
+  reporter: string;
+  status: string;
+  timestamp: number;
+  decryptedContent?: string;
+  decryptedSeverity?: number;
+};
+
+type UseWhistleBlowerProps = {
+  instance: FhevmInstance | null | undefined;
+  fhevmDecryptionSignatureStorage: any;
+  eip1193Provider: Eip1193Provider | null | undefined;
+  chainId: number | null | undefined;
+  ethersSigner: Signer | null | undefined;
+  ethersReadonlyProvider: any;
+  sameChain: any;
+  sameSigner: any;
+};
+
+export function useWhistleBlower({
+  instance,
+  fhevmDecryptionSignatureStorage,
+  eip1193Provider,
+  chainId,
+  ethersSigner,
+  ethersReadonlyProvider,
+  sameChain,
+  sameSigner,
+}: UseWhistleBlowerProps) {
+  const [contractAddress, setContractAddress] = useState<string>("");
+  const [isDeployed, setIsDeployed] = useState<boolean | null>(null);
+  const [totalReports, setTotalReports] = useState<number>(0);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDecrypting, setIsDecrypting] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const canSubmit = Boolean(
+    instance && ethersSigner && isDeployed && !isSubmitting
+  );
+
+  // Determine contract address based on chain
+  useEffect(() => {
+    if (!chainId) {
+      setContractAddress("");
+      return;
+    }
+
+    const entry = (WhistleBlowerAddresses as any)[String(chainId)];
+    if (entry && entry.address) {
+      setContractAddress(entry.address);
+    } else {
+      setContractAddress("");
+    }
+  }, [chainId]);
+
+  // Check if contract is deployed
+  useEffect(() => {
+    async function checkDeployment() {
+      if (!contractAddress || !ethersReadonlyProvider) {
+        setIsDeployed(null);
+        return;
+      }
+
+      try {
+        const code = await ethersReadonlyProvider.getCode(contractAddress);
+        setIsDeployed(code !== "0x");
+      } catch (error) {
+        console.error("Error checking deployment:", error);
+        setIsDeployed(false);
+      }
+    }
+
+    checkDeployment();
+  }, [contractAddress, ethersReadonlyProvider]);
+
+  // Fetch total reports
+  const fetchTotalReports = useCallback(async () => {
+    if (!contractAddress || !ethersReadonlyProvider || !isDeployed) return;
+
+    try {
+      const contract = new ethers.Contract(
+        contractAddress,
+        WhistleBlower.abi,
+        ethersReadonlyProvider
+      );
+      const total = await contract.getTotalReports();
+      setTotalReports(Number(total));
+    } catch (error) {
+      console.error("Error fetching total reports:", error);
+    }
+  }, [contractAddress, ethersReadonlyProvider, isDeployed]);
+
+  useEffect(() => {
+    fetchTotalReports();
+  }, [fetchTotalReports]);
+
+  // Submit encrypted report
+  const submitReport = useCallback(
+    async (content: string, severity: number) => {
+      if (!instance || !ethersSigner || !contractAddress) {
+        setMessage("Missing required dependencies");
+        return;
+      }
+
+      setIsSubmitting(true);
+      setMessage("Encrypting and submitting report...");
+
+      try {
+        // Convert content string to a number (for simplicity, use hash)
+        const contentHash = BigInt(
+          ethers.keccak256(ethers.toUtf8Bytes(content))
+        );
+        const contentNumber = contentHash % BigInt(2 ** 64); // Fit into uint64
+
+        // Encrypt content as euint64
+        const encryptedContent = await instance.createEncryptedInput(
+          contractAddress,
+          await ethersSigner.getAddress()
+        );
+        encryptedContent.add64(contentNumber);
+        const { handles: contentHandles, inputProof: contentProof } =
+          await encryptedContent.encrypt();
+
+        // Encrypt severity as euint32
+        const encryptedSeverity = await instance.createEncryptedInput(
+          contractAddress,
+          await ethersSigner.getAddress()
+        );
+        encryptedSeverity.add32(severity);
+        const { handles: severityHandles, inputProof: severityProof } =
+          await encryptedSeverity.encrypt();
+
+        // Submit to contract
+        const contract = new ethers.Contract(
+          contractAddress,
+          WhistleBlower.abi,
+          ethersSigner
+        );
+
+        const tx = await contract.submitReport(
+          contentHandles[0],
+          contentProof,
+          severityHandles[0],
+          severityProof
+        );
+
+        setMessage("Transaction submitted, waiting for confirmation...");
+        await tx.wait();
+
+        setMessage("Report submitted successfully!");
+        await fetchTotalReports();
+        await refreshReports();
+
+        setTimeout(() => setMessage(""), 5000);
+      } catch (error: any) {
+        console.error("Error submitting report:", error);
+        setMessage(`Error: ${error.message || "Failed to submit report"}`);
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [instance, ethersSigner, contractAddress, fetchTotalReports]
+  );
+
+  // Refresh reports list
+  const refreshReports = useCallback(async () => {
+    if (!contractAddress || !ethersReadonlyProvider || !isDeployed) return;
+
+    setIsRefreshing(true);
+
+    try {
+      const contract = new ethers.Contract(
+        contractAddress,
+        WhistleBlower.abi,
+        ethersReadonlyProvider
+      );
+
+      const total = await contract.getTotalReports();
+      const totalNum = Number(total);
+
+      const reportsData: Report[] = [];
+
+      for (let i = 0; i < totalNum; i++) {
+        try {
+          const metadata = await contract.getReportMetadata(i);
+          const statusNames = ["Pending", "Under Review", "Resolved"];
+          
+          reportsData.push({
+            id: i,
+            reporter: metadata[0],
+            status: statusNames[Number(metadata[1])] || "Unknown",
+            timestamp: Number(metadata[2]),
+          });
+        } catch (error) {
+          console.error(`Error fetching report ${i}:`, error);
+        }
+      }
+
+      setReports(reportsData);
+    } catch (error) {
+      console.error("Error refreshing reports:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [contractAddress, ethersReadonlyProvider, isDeployed]);
+
+  useEffect(() => {
+    if (isDeployed) {
+      refreshReports();
+    }
+  }, [isDeployed, refreshReports]);
+
+  // Decrypt report (FHEVM userDecrypt with wallet signature)
+  const decryptReport = useCallback(
+    async (reportId: number) => {
+      if (!instance || !ethersSigner || !contractAddress) {
+        setMessage("Missing required dependencies for decryption");
+        return;
+      }
+
+      setIsDecrypting(true);
+      setMessage("Preparing FHEVM decryption signature...");
+
+      try {
+        const sig = await FhevmDecryptionSignature.loadOrSign(
+          instance,
+          [contractAddress as `0x${string}`],
+          ethersSigner,
+          fhevmDecryptionSignatureStorage
+        );
+
+        if (!sig) {
+          setMessage("Unable to build FHEVM decryption signature");
+          return;
+        }
+
+        const contract = new ethers.Contract(
+          contractAddress,
+          WhistleBlower.abi,
+          ethersReadonlyProvider || ethersSigner
+        );
+
+        // Get encrypted handles from contract
+        const contentHandle: string = await contract.getReportContent(reportId);
+        const severityHandle: string = await contract.getReportSeverity(reportId);
+
+        setMessage("Calling FHEVM userDecrypt...");
+
+        const res = await instance.userDecrypt(
+          [
+            { handle: contentHandle, contractAddress },
+            { handle: severityHandle, contractAddress },
+          ],
+          sig.privateKey,
+          sig.publicKey,
+          sig.signature,
+          sig.contractAddresses,
+          sig.userAddress,
+          sig.startTimestamp,
+          sig.durationDays
+        );
+
+        const decryptedContentValue = res[contentHandle];
+        const decryptedSeverityValue = res[severityHandle];
+
+        setReports((prevReports) =>
+          prevReports.map((report) =>
+            report.id === reportId
+              ? {
+                  ...report,
+                  // Content was originally a hashed number; display as hex hash fingerprint
+                  decryptedContent: decryptedContentValue
+                    ? `0x${decryptedContentValue.toString(16)}`
+                    : "",
+                  decryptedSeverity: decryptedSeverityValue
+                    ? Number(decryptedSeverityValue)
+                    : undefined,
+                }
+              : report
+          )
+        );
+
+        setMessage("FHEVM decryption completed");
+        setTimeout(() => setMessage(""), 3000);
+      } catch (error: any) {
+        console.error("Error decrypting report:", error);
+        setMessage(`Decryption error: ${error.message || "Failed to decrypt"}`);
+      } finally {
+        setIsDecrypting(false);
+      }
+    },
+    [
+      instance,
+      ethersSigner,
+      contractAddress,
+      ethersReadonlyProvider,
+      fhevmDecryptionSignatureStorage,
+    ]
+  );
+
+  return {
+    contractAddress,
+    isDeployed,
+    totalReports,
+    reports,
+    isSubmitting,
+    isRefreshing,
+    isDecrypting,
+    canSubmit,
+    message,
+    submitReport,
+    refreshReports,
+    decryptReport,
+  };
+}
