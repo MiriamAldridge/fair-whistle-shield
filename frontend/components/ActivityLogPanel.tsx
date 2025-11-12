@@ -64,8 +64,8 @@ export function ActivityLogPanel() {
   }, [entries]);
 
   return (
-    <div className="card bg-base-100 shadow-xl border-2 border-base-300 w-full max-w-full overflow-hidden">
-      <div className="card-body-content p-4">
+    <div className="card bg-base-100 shadow border w-full max-w-full overflow-hidden">
+      <div className="card-body p-4">
         <div className="flex items-center justify-between mb-1">
           <h3 className="card-title text-base">Activity Log</h3>
           <button className="btn btn-ghost btn-xs" onClick={clear}>Clear</button>
