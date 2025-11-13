@@ -241,7 +241,7 @@ export const WhistleBlowerDemo = ({ mode = "full" }: WhistleBlowerDemoProps) => 
                   }
                   onClick={() => {
                     addLog({ 
-                      activityType: "report_submit", 
+                      type: "report_submit", 
                       title: "Submit Encrypted Report", 
                       details: `severity=${reportSeverity}` 
                     });
