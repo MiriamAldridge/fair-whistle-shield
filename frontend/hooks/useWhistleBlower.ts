@@ -195,7 +195,7 @@ export function useWhistleBlower({
       for (let i = 0; i < totalNum; i++) {
         try {
           const metadata = await contract.getReportMetadata(i);
-          const statusNames = ["Pending", "Under Review", "Resolved"];
+          const statusNames = ["Pending", "Under Review", "Resolved", "Rejected"];
           
           reportsData.push({
             id: i,
