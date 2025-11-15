@@ -200,6 +200,7 @@ export const WhistleBlowerDemo = ({ mode = "full" }: WhistleBlowerDemoProps) => 
                   value={reportContent}
                   onChange={(e) => setReportContent(e.target.value)}
                   disabled={whistleBlower.isSubmitting}
+                  aria-label="Report content (will be encrypted)"
                 />
               </div>
 
@@ -221,6 +222,7 @@ export const WhistleBlowerDemo = ({ mode = "full" }: WhistleBlowerDemoProps) => 
                   className="range range-primary"
                   step="1"
                   disabled={whistleBlower.isSubmitting}
+                  aria-label={`Report severity level: ${reportSeverity}`}
                 />
                 <div className="w-full flex justify-between text-xs px-2 mt-2">
                   <span>Low</span>
