@@ -16,16 +16,16 @@ type Report = {
   decryptedSeverity?: number;
 };
 
-type UseWhistleBlowerProps = {
+interface UseWhistleBlowerProps {
   instance: FhevmInstance | null | undefined;
-  fhevmDecryptionSignatureStorage: any;
+  fhevmDecryptionSignatureStorage: Storage;
   eip1193Provider: Eip1193Provider | null | undefined;
   chainId: number | null | undefined;
   ethersSigner: Signer | null | undefined;
-  ethersReadonlyProvider: any;
-  sameChain: any;
-  sameSigner: any;
-};
+  ethersReadonlyProvider: BrowserProvider | null | undefined;
+  sameChain: boolean;
+  sameSigner: boolean;
+}
 
 export function useWhistleBlower({
   instance,
