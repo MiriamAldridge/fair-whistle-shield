@@ -40,6 +40,7 @@ contract WhistleBlower is SepoliaConfig {
     event ReportSubmitted(uint256 indexed reportId, address indexed reporter, uint256 timestamp);
     event ReportStatusUpdated(uint256 indexed reportId, ReportStatus newStatus);
     event ReportDecrypted(uint256 indexed reportId, address indexed requester);
+    event AdminTransferred(address indexed previousAdmin, address indexed newAdmin);
 
     /// @notice Modifier to restrict access to admin only
     modifier onlyAdmin() {
@@ -157,6 +158,8 @@ contract WhistleBlower is SepoliaConfig {
     /// @param newAdmin The address of the new admin
     function transferAdmin(address newAdmin) external onlyAdmin {
         require(newAdmin != address(0), "Invalid admin address");
+        address previousAdmin = admin;
         admin = newAdmin;
+        emit AdminTransferred(previousAdmin, newAdmin);
     }
 }
