@@ -166,7 +166,9 @@ export function useWhistleBlower({
         setTimeout(() => setMessage(""), 5000);
       } catch (error: any) {
         console.error("Error submitting report:", error);
-        setMessage(`Error: ${error.message || "Failed to submit report"}`);
+        const errorMessage = error.reason || error.message || "Failed to submit report";
+        setMessage(`Submission failed: ${errorMessage}`);
+        setTimeout(() => setMessage(""), 5000);
       } finally {
         setIsSubmitting(false);
       }
@@ -296,7 +298,9 @@ export function useWhistleBlower({
         setTimeout(() => setMessage(""), 3000);
       } catch (error: any) {
         console.error("Error decrypting report:", error);
-        setMessage(`Decryption error: ${error.message || "Failed to decrypt"}`);
+        const errorMessage = error.reason || error.message || "Failed to decrypt";
+        setMessage(`Decryption failed: ${errorMessage}`);
+        setTimeout(() => setMessage(""), 5000);
       } finally {
         setIsDecrypting(false);
       }
