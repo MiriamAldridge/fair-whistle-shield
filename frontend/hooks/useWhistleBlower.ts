@@ -118,11 +118,10 @@ export function useWhistleBlower({
       setMessage("Encrypting and submitting report...");
 
       try {
-        // Convert content string to a number (for simplicity, use hash)
-        const contentHash = BigInt(
-          ethers.keccak256(ethers.toUtf8Bytes(content))
-        );
-        const contentNumber = contentHash % BigInt(2 ** 64); // Fit into uint64
+        // Convert content string to a number (use hash for deterministic encryption)
+        const contentBytes = ethers.toUtf8Bytes(content);
+        const contentHash = BigInt(ethers.keccak256(contentBytes));
+        const contentNumber = contentHash % BigInt(2 ** 64); // Fit into uint64 range
 
         // Encrypt content as euint64
         const encryptedContent = await instance.createEncryptedInput(
