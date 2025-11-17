@@ -52,8 +52,17 @@ export function ReportSubmitPanel() {
   const submitEncrypted = () => {
     const content = reportContent.trim();
     const sev = parseInt(severity, 10);
-    if (!content || !Number.isFinite(sev)) return;
-    if (sev < 1 || sev > 5) return;
+    
+    // Validate inputs
+    if (!content) {
+      addLog({ type: "error", title: "Validation Error", details: "Report content cannot be empty" });
+      return;
+    }
+    if (!Number.isFinite(sev) || sev < 1 || sev > 5) {
+      addLog({ type: "error", title: "Validation Error", details: "Invalid severity level" });
+      return;
+    }
+    
     addLog({ type: "report_submit", title: "Submit Encrypted Report", details: `severity=${sev}` });
     whistleBlower.submitReport(content, sev);
   };
