@@ -143,6 +143,7 @@ contract WhistleBlower is SepoliaConfig {
     /// @param user The address to grant permission to
     function grantDecryptionPermission(uint256 reportId, address user) external onlyAdmin {
         require(reports[reportId].exists, "Report does not exist");
+        require(user != address(0), "Invalid user address");
         FHE.allow(reports[reportId].encryptedContent, user);
         FHE.allow(reports[reportId].encryptedSeverity, user);
         emit ReportDecrypted(reportId, user);
