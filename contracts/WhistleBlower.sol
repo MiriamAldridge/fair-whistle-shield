@@ -134,7 +134,7 @@ contract WhistleBlower is SepoliaConfig {
         )
     {
         require(reports[reportId].exists, "Report does not exist");
-        Report memory report = reports[reportId];
+        Report storage report = reports[reportId];
         return (report.reporter, report.status, report.timestamp);
     }
 
