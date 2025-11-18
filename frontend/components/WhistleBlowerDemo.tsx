@@ -102,9 +102,9 @@ export const WhistleBlowerDemo = ({ mode = "full" }: WhistleBlowerDemoProps) => 
   const buttonClass =
     "btn btn-primary font-semibold text-white shadow-lg " +
     "transition-all duration-200 hover:scale-105 active:scale-95 " +
-    "disabled:opacity-50 disabled:cursor-not-allowed";
+    "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100";
 
-  const cardClass = "card bg-base-100 shadow-xl border-2 border-base-300";
+  const cardClass = "card bg-base-100 shadow-xl border-2 border-base-300 transition-shadow hover:shadow-2xl";
   const titleClass = "text-xl font-bold text-primary mb-4";
 
   if (!isConnected) {
