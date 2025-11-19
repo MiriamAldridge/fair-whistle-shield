@@ -30,11 +30,13 @@ describe("WhistleBlower", function () {
 
   beforeEach(async function () {
     // Check whether the tests are running against an FHEVM mock environment
+    // Skip tests if running on real network (Sepolia) as encryption requires actual FHE
     if (!fhevm.isMock) {
       console.warn(`This hardhat test suite cannot run on Sepolia Testnet`);
       this.skip();
     }
 
+    // Deploy a fresh contract for each test
     ({ whistleBlowerContract, whistleBlowerContractAddress } = await deployFixture());
   });
 
